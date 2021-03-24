@@ -23,58 +23,62 @@ library(caret)
 library(ggplot2)
 library(tree)
 library(blorr)
+library(xgboost)
+library(class)
+library(ranger)
+
 
 #Not necessary if you read in the csvs above (mathscores, portscores)
 
-mathscores$Unsatisfactory <- ifelse(mathscores$G3 <= 5,1,0)
-portscores$Unsatisfactory <- ifelse(portscores$G3 <= 5,1,0)
-mathscores$schoolsup <- ifelse(mathscores$schoolsup == 'yes', 1,0)
-mathscores$famsup <- ifelse(mathscores$famsup == 'yes', 1,0)
-mathscores$paid <- ifelse(mathscores$paid == 'yes', 1,0)
-mathscores$activities <- ifelse(mathscores$activities == 'yes', 1,0)
-mathscores$nursery <- ifelse(mathscores$nursery == 'yes', 1,0)
-mathscores$higher <- ifelse(mathscores$higher == 'yes', 1,0)
-mathscores$internet <- ifelse(mathscores$internet == 'yes', 1,0)
-mathscores$romantic <- ifelse(mathscores$romantic == 'yes', 1,0)
-portscores$schoolsup <- ifelse(portscores$schoolsup == 'yes', 1,0)
-portscores$famsup <- ifelse(portscores$famsup == 'yes', 1,0)
-portscores$paid <- ifelse(portscores$paid == 'yes', 1,0)
-portscores$activities <- ifelse(portscores$activities == 'yes', 1,0)
-portscores$nursery <- ifelse(portscores$nursery == 'yes', 1,0)
-portscores$higher <- ifelse(portscores$higher == 'yes', 1,0)
-portscores$internet <- ifelse(portscores$internet == 'yes', 1,0)
-portscores$romantic <- ifelse(portscores$romantic == 'yes', 1,0)
-mathscores$Male <- ifelse(mathscores$sex == 'M',1,0)
-portscores$Male <- ifelse(portscores$G3 == 'M',1,0)
+# mathscores$Unsatisfactory <- ifelse(mathscores$G3 <= 5,1,0)
+# portscores$Unsatisfactory <- ifelse(portscores$G3 <= 5,1,0)
+# mathscores$schoolsup <- ifelse(mathscores$schoolsup == 'yes', 1,0)
+# mathscores$famsup <- ifelse(mathscores$famsup == 'yes', 1,0)
+# mathscores$paid <- ifelse(mathscores$paid == 'yes', 1,0)
+# mathscores$activities <- ifelse(mathscores$activities == 'yes', 1,0)
+# mathscores$nursery <- ifelse(mathscores$nursery == 'yes', 1,0)
+# mathscores$higher <- ifelse(mathscores$higher == 'yes', 1,0)
+# mathscores$internet <- ifelse(mathscores$internet == 'yes', 1,0)
+# mathscores$romantic <- ifelse(mathscores$romantic == 'yes', 1,0)
+# portscores$schoolsup <- ifelse(portscores$schoolsup == 'yes', 1,0)
+# portscores$famsup <- ifelse(portscores$famsup == 'yes', 1,0)
+# portscores$paid <- ifelse(portscores$paid == 'yes', 1,0)
+# portscores$activities <- ifelse(portscores$activities == 'yes', 1,0)
+# portscores$nursery <- ifelse(portscores$nursery == 'yes', 1,0)
+# portscores$higher <- ifelse(portscores$higher == 'yes', 1,0)
+# portscores$internet <- ifelse(portscores$internet == 'yes', 1,0)
+# portscores$romantic <- ifelse(portscores$romantic == 'yes', 1,0)
+# mathscores$Male <- ifelse(mathscores$sex == 'M',1,0)
+# portscores$Male <- ifelse(portscores$G3 == 'M',1,0)
 
 
 
-mathscores$Ranking <- rep(NA, times = length(mathscores$G3))
-for(s in 1:length(mathscores$G3)){
-  if (mathscores$G3[s] <=5){
-    mathscores$Ranking[s] <- "Unsatisfactory"
-  } else if(mathscores$G3[s] <= 13) {
-    mathscores$Ranking[s] <- "Partial"
-  }else {
-    mathscores$Ranking[s] <- "Proficient"
-  }
-}
-
-View(mathscores)
-
-
-portscores$Ranking <- rep(NA, times = length(portscores$G3))
-for(s in 1:length(portscores$G3)){
-  if (portscores$G3[s] <=5){
-    portscores$Ranking[s] <- "Unsatisfactory"
-  } else if(portscores$G3[s] <= 13) {
-    portscores$Ranking[s] <- "Partial"
-  }else {
-    portscores$Ranking[s] <- "Proficient"
-  }
-}
-
-View(portscores)
+# mathscores$Ranking <- rep(NA, times = length(mathscores$G3))
+# for(s in 1:length(mathscores$G3)){
+#   if (mathscores$G3[s] <=5){
+#     mathscores$Ranking[s] <- "Unsatisfactory"
+#   } else if(mathscores$G3[s] <= 13) {
+#     mathscores$Ranking[s] <- "Partial"
+#   }else {
+#     mathscores$Ranking[s] <- "Proficient"
+#   }
+# }
+# 
+# View(mathscores)
+# 
+# 
+# portscores$Ranking <- rep(NA, times = length(portscores$G3))
+# for(s in 1:length(portscores$G3)){
+#   if (portscores$G3[s] <=5){
+#     portscores$Ranking[s] <- "Unsatisfactory"
+#   } else if(portscores$G3[s] <= 13) {
+#     portscores$Ranking[s] <- "Partial"
+#   }else {
+#     portscores$Ranking[s] <- "Proficient"
+#   }
+# }
+# 
+# View(portscores)
 
 # Check the transformations were correctly applied
 
@@ -171,5 +175,213 @@ summary(portscores)
 test1 <- lm(Unsatisfactory~.,train)
 
 test2 <- lm(Unsatisfactory~.,train2)
+
+#Random Forest: Math Scores
+
+set.seed(5415)
+index = sample(1:nrow(mathscores), 0.70*nrow(mathscores)) 
+train = mathscores[index,] # Create the training data 
+test = mathscores[-index,] # Create the test data
+mathrf <- ranger(Unsatisfactory~. -(G3+G2+G1), train, num.trees = 100)
+
+summary(mathrf$forest)
+
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+  
+  
+  # Model performance metrics
+  data.frame(
+    RMSE = RMSE,
+    Rsquare = R_square
+  )
+  
+}
+
+# Prediction and evaluation on test data
+predictions_test <- predict(mathrf, test)
+eval_results(test$Unsatisfactory, predictions_test$predictions, test) #R2 = .826, RMSE = 0.139
+
+# Prediction and evaluation on test data
+predictions_train <- predict(mathrf, train)
+eval_results(train$Unsatisfactory, predictions_train$predictions, train) #R2 = 0.942, RMSE = 0.076
+
+#Random Forest: Math Scores
+
+set.seed(5415)
+index = sample(1:nrow(mathscores), 0.70*nrow(mathscores)) 
+train = mathscores[index,] # Create the training data 
+test = mathscores[-index,] # Create the test data
+mathrf <- ranger(Unsatisfactory~. -(G3+G2+G1), train, num.trees = 100)
+
+summary(mathrf$forest)
+
+
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+  
+  
+  # Model performance metrics
+  data.frame(
+    RMSE = RMSE,
+    Rsquare = R_square
+  )
+  
+}
+
+# Prediction and evaluation on test data
+predictions_test <- predict(mathrf, test)
+eval_results(test$Unsatisfactory, predictions_test$predictions, test) #R2 = .826, RMSE = 0.139
+
+# Prediction and evaluation on test data
+predictions_train <- predict(mathrf, train)
+eval_results(train$Unsatisfactory, predictions_train$predictions, train) #R2 = 0.942, RMSE = 0.076
+
+
+#XGBoost Math
+set.seed(5415)
+
+num_cols <- unlist(lapply(mathscores, is.numeric))
+mathnums <- mathscores[ , num_cols] 
+mathnums$G2 <- NULL
+mathnums$G1 <- NULL
+mathnums$G3 <- NULL
+
+index = sample(1:nrow(mathnums), 0.60*nrow(mathnums)) 
+train = mathnums[index,] # Create the training data 
+test = mathnums[-index,] # Create the test data
+
+
+train_y = train[,'Unsatisfactory']
+train_x = train[, names(train) !='Unsatisfactory']
+
+test_y = test[,'Unsatisfactory']
+test_x = test[, names(test) !='Unsatisfactory']
+
+dtrain = xgb.DMatrix(data =  as.matrix(train_x), label = train_y )
+dtest = xgb.DMatrix(data =  as.matrix(test_x), label = test_y)
+
+watchlist = list(train=dtrain, test=dtest)
+  
+
+#Logistic XGBOOST
+
+math = xgb.train(data = dtrain, 
+                max.depth = 4, 
+                eta = 0.2, 
+                nthread = 2, 
+                nround = 1000, 
+                watchlist = watchlist, 
+                objective = "reg:logistic", 
+                early_stopping_rounds = 50,
+                print_every_n = 500)
+
+port = xgb.train(data = dtrain, 
+                 max.depth = 6, 
+                 eta = 0.3, 
+                 nthread = 2, 
+                 nround = 1000, 
+                 watchlist = watchlist, 
+                 objective = "reg:logistic", 
+                 early_stopping_rounds = 50,
+                 print_every_n = 500)
+
+
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+  
+  
+  # Model performance metrics
+  data.frame(
+    RMSE = RMSE,
+    Rsquare = R_square
+  )
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(math, newdata = dtrain)
+eval_results(train_y, predictions_train, dtrain)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(math, newdata = dtest)
+eval_results(test_y, predictions_test, dtest)
+
+#Linear XGBOOST
+
+#Scaling features
+
+set.seed(5415)
+
+num_cols <- unlist(lapply(mathscores, is.numeric))
+mathnums <- mathscores[ , num_cols] 
+mathnums$G2 <- NULL
+mathnums$G1 <- NULL
+mathnums$Unsatisfactory <- NULL
+
+index = sample(1:nrow(mathnums), 0.60*nrow(mathnums)) 
+train = mathnums[index,] # Create the training data 
+test = mathnums[-index,] # Create the test data
+
+
+train_y = train[,'G3']
+train_x = train[, names(train) !='G3']
+
+test_y = test[,'G3']
+test_x = test[, names(test) !='G3']
+
+dtrain = xgb.DMatrix(data =  as.matrix(train_x), label = train_y )
+dtest = xgb.DMatrix(data =  as.matrix(test_x), label = test_y)
+
+watchlist = list(train=dtrain, test=dtest)
+
+
+bst = xgb.train(data = dtrain, 
+                max.depth = 6, 
+                eta = 0.05, 
+                nthread = 2, 
+                nround = 1000, 
+                watchlist = watchlist, 
+                objective = "reg:linear", 
+                early_stopping_rounds = 50,
+                print_every_n = 500)
+
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+  
+  
+  # Model performance metrics
+  data.frame(
+    RMSE = RMSE,
+    Rsquare = R_square
+  )
+  
+}
+
+# Prediction and evaluation on train data
+predictions_train <- predict(bst, newdata = dtrain)
+eval_results(train_y, predictions_train, dtrain)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(bst, newdata = dtest)
+eval_results(test_y, predictions_test, dtest)
+
+
+
 
 
