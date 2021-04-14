@@ -170,7 +170,7 @@ summary(mathscores)
 summary(portscores)
 
 
-#predictive lms
+#Predict Unsatisfactory scores using a linear regression
 
 test1 <- lm(Unsatisfactory~.,train)
 
@@ -245,7 +245,7 @@ predictions_train <- predict(mathrf, train)
 eval_results(train$Unsatisfactory, predictions_train$predictions, train) #R2 = 0.942, RMSE = 0.076
 
 
-#XGBoost Math
+#Extreme Gradient Boosted Linear Regression for Math Scores (G3)
 set.seed(5415)
 
 num_cols <- unlist(lapply(mathscores, is.numeric))
@@ -318,19 +318,16 @@ eval_results(train_y, predictions_train, dtrain)
 predictions_test <- predict(math, newdata = dtest)
 eval_results(test_y, predictions_test, dtest)
 
-#Linear XGBOOST
-
-#Scaling features
+#Linear XGBOOST of Math Scores
 
 set.seed(5415)
 
 num_cols <- unlist(lapply(mathscores, is.numeric))
 mathnums <- mathscores[ , num_cols] 
-mathnums$G2 <- NULL
 mathnums$G1 <- NULL
 mathnums$Unsatisfactory <- NULL
 
-index = sample(1:nrow(mathnums), 0.60*nrow(mathnums)) 
+index = sample(1:nrow(mathnums), 0.70*nrow(mathnums)) 
 train = mathnums[index,] # Create the training data 
 test = mathnums[-index,] # Create the test data
 
@@ -347,7 +344,7 @@ dtest = xgb.DMatrix(data =  as.matrix(test_x), label = test_y)
 watchlist = list(train=dtrain, test=dtest)
 
 
-bst = xgb.train(data = dtrain, 
+mathxgb = xgb.train(data = dtrain, 
                 max.depth = 6, 
                 eta = 0.05, 
                 nthread = 2, 
@@ -374,14 +371,73 @@ eval_results <- function(true, predicted, df) {
 }
 
 # Prediction and evaluation on train data
-predictions_train <- predict(bst, newdata = dtrain)
-eval_results(train_y, predictions_train, dtrain)
+#predictions_train <- predict(bst, newdata = dtrain)
+#eval_results(train_y, predictions_train, dtrain)
 
 # Prediction and evaluation on test data
-predictions_test <- predict(bst, newdata = dtest)
-eval_results(test_y, predictions_test, dtest)
+predictions_test <- predict(mathxgb, newdata = dtest)
+eval_results(test_y, predictions_test, dtest) #RMSE = 1.48, R2 = 0.88
 
 
+#Linear XGBOOST of Portuguese Scores
+
+set.seed(5415)
+
+num_cols <- unlist(lapply(portscores, is.numeric))
+portnums <- portscores[ , num_cols] 
+portnums$G1 <- NULL
+portnums$Unsatisfactory <- NULL
+
+index = sample(1:nrow(portnums), 0.70*nrow(portnums)) 
+train = portnums[index,] # Create the training data 
+test = portnums[-index,] # Create the test data
+
+
+train_y = train[,'G3']
+train_x = train[, names(train) !='G3']
+
+test_y = test[,'G3']
+test_x = test[, names(test) !='G3']
+
+dtrain = xgb.DMatrix(data =  as.matrix(train_x), label = train_y )
+dtest = xgb.DMatrix(data =  as.matrix(test_x), label = test_y)
+
+watchlist = list(train=dtrain, test=dtest)
+
+
+portxgb = xgb.train(data = dtrain, 
+                max.depth = 10, 
+                eta = 0.01, 
+                nthread = 8, 
+                nround = 2000, 
+                watchlist = watchlist, 
+                objective = "reg:linear", 
+                early_stopping_rounds = 50,
+                print_every_n = 500)
+
+# Compute R^2 from true and predicted values
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+  
+  
+  # Model performance metrics
+  data.frame(
+    RMSE = RMSE,
+    Rsquare = R_square
+  )
+  
+}
+
+# Prediction and evaluation on train data
+#predictions_train <- predict(bst, newdata = dtrain)
+#eval_results(train_y, predictions_train, dtrain)
+
+# Prediction and evaluation on test data
+predictions_test <- predict(portxgb, newdata = dtest)
+eval_results(test_y, predictions_test, dtest) #RMSE = 1.62, R2 = 0.745, MAE = 0.976
 
 
 
