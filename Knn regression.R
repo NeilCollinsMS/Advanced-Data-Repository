@@ -13,13 +13,8 @@ str(mathscores)
 
 library(caret)
 
-#Lots of educational measuring is bucketed into groups based on proficiency.
-mathscores$prof <- ifelse(mathscores$G3 < 6, 'Unsatisfactory',
-                          ifelse(mathscores$G3 < 13, 'Partial', 'Proficient'))
 
-mathscores$prof <- as.factor(mathscores$prof )
 
-table(mathscores$prof)/nrow(mathscores)
 #We can see that in our full dataset, 55% of kids are partially proficient, 33% are proficient and 12% are Unsatisfactory
 
 set.seed(300)
@@ -29,8 +24,7 @@ train <- sample(nrow(mathscores), nrow(mathscores) * .6)
 math.train <- mathscores[train, ]
 math.test <- mathscores[-train, ]
 
-#similar percentages in the test set for the buckets. We'll compare this to our predictions of G3 scores.
-table(math.test$prof)/nrow(math.test)
+
 
 #let's look at variable importance
 
@@ -68,6 +62,8 @@ plot(vk, accuracy, xlab = "k", ylab = "test accuracy", col = "blue")
 
 knn <- knnreg(G3 ~ G2+absences+famrel+reason+schoolsup+age+nursery+health+Fedu+activities+Dalc+studytime+Fjob+failures, data = math.train, k =7)
 
+
+
 #R2 of .898
 preds = round(predict(knn, newdata = math.test),0)
 rsq <- function (x, y) cor(x, y) ^ 2
@@ -84,6 +80,24 @@ preds_df$prof <- ifelse(preds < 6, 'Unsatisfactory',
 #Looks Like our model predicts more partially proficient scores and less proficient but its close.
 table(preds_df$prof)/nrow(preds_df)
 
+#Lots of educational measuring is bucketed into groups based on proficiency.
+mathscores$prof <- ifelse(mathscores$G3 < 6, 'Unsatisfactory',
+                           ifelse(mathscores$G3 < 13, 'Partial', 'Proficient'))
+
+
+
+mathscores$prof <- as.factor(mathscores$prof )
+
+table(mathscores$prof)/nrow(mathscores)
+
+train <- sample(nrow(mathscores), nrow(mathscores) * .6)
+math.train <- mathscores[train, ]
+math.test <- mathscores[-train, ]
+
+table(math.test$prof)/nrow(math.test)
+
+
+
 #Let's check portugese class
 
 port <- read.csv('student-por.csv', sep=";", stringsAsFactors = T)
@@ -94,13 +108,9 @@ for (i in colnames(port)){
   }
 }
 
-#Lets check port prof numbers
-port$prof <- ifelse(port$G3 < 6, 'Unsatisfactory',
-                          ifelse(port$G3 < 13, 'Partial', 'Proficient'))
 
-port$prof <- as.factor(port$prof )
 
-table(port$prof)/nrow(port)
+
 
 #55% partial prof, 43% Prof, 3% Unsatisfactory
 
@@ -112,8 +122,6 @@ port.train <- port[train, ]
 port.test <- port[-train, ]
 
 
-table(port.test$prof)/nrow(port.test)
-#test data is 58% partial pro, 40% pro, 2% unsat
 
 #Lets find the important features like with mathscores
 control <- trainControl(method="repeatedcv", number=10, repeats=3)
@@ -152,8 +160,25 @@ preds_df = data.frame(preds = preds)
 preds_df$prof <- ifelse(preds < 6, 'Unsatisfactory',
                         ifelse(preds < 13, 'Partial', 'Proficient'))
 
-#Looks Like our model predicts prof distribution pretty well! Test partial percentage is 59%, prof is right on at 40% and unsat is slightly off at 1%.
+
+
 table(preds_df$prof)/nrow(preds_df)
+
+
+#Lets check port prof numbers
+port$prof <- ifelse(port$G3 < 6, 'Unsatisfactory',
+                    ifelse(port$G3 < 13, 'Partial', 'Proficient'))
+
+port$prof <- as.factor(port$prof )
+
+
+table(port$prof)/nrow(port)
+
+train <- sample(nrow(port), nrow(port) * .6)
+port.train <- port[train, ]
+port.test <- port[-train, ]
+
+table(port.test$prof)/nrow(port.test)
 
 
 #RMSE for math model on port
